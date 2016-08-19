@@ -33632,6 +33632,10 @@ static s7_pointer g_getenv(s7_scheme *sc, s7_pointer args)
   return(s7_make_string(sc, getenv(string_value(name))));
 }
 
+#ifdef _MSC_VER
+#define popen _popen
+#define pclose _pclose
+#endif
 
 static s7_pointer g_system(s7_scheme *sc, s7_pointer args)
 {
@@ -52338,7 +52342,9 @@ static void init_choosers(s7_scheme *sc)
   s7_pf_set_function(slot_value(global_slot(sc->call_with_input_file_symbol)), call_with_input_file_pf);
 
 #if WITH_SYSTEM_EXTRAS
+#ifndef _MSC_VER
   s7_gf_set_function(slot_value(global_slot(sc->directory_to_list_symbol)), directory_to_list_pf);
+#endif
 #endif
   s7_if_set_function(slot_value(global_slot(sc->write_byte_symbol)), write_byte_if);
   s7_pf_set_function(slot_value(global_slot(sc->write_char_symbol)), write_char_pf);
@@ -73268,7 +73274,6 @@ static s7_pointer g_is_integer_or_real_at_end(s7_scheme *sc, s7_pointer args) {r
 static s7_pointer g_is_integer_or_any_at_end(s7_scheme *sc, s7_pointer args) {return(sc->T);}
 
 
-#ifndef _MSC_VER
 /* gdb stacktrace decoding */
 
 static bool is_decodable(s7_scheme *sc, s7_pointer p)
@@ -73391,8 +73396,6 @@ char *s7_decode_bt(void)
   }
   return((char *)"");
 }
-#endif
-
 
 /* ---------------- an experiment ---------------- */
 static s7_int tree_len(s7_scheme *sc, s7_pointer p, s7_int i)
