@@ -28474,7 +28474,11 @@ s7_pointer s7_load(s7_scheme *sc, const char *filename)
 
 
 #if WITH_C_LOADER
+#ifdef _MSC_VER
+#include <Windows.h>
+#else
 #include <dlfcn.h>
+#endif
 
 static char *full_filename(const char *filename)
 {
@@ -28528,6 +28532,51 @@ defaults to the rootlet.  To load into the current environment instead, pass (cu
     return(s7_error(sc, sc->wrong_type_arg_symbol, set_elist_2(sc, make_string_wrapper(sc, "load argument, ~S, is a directory"), name)));
 
 #if WITH_C_LOADER
+#ifdef _MSC_VER
+  {
+    int fname_len;
+
+    fname_len = safe_strlen(fname);
+    if ((fname_len > 4) &&
+      (is_pair(cdr(args))) &&
+      (local_strcmp((const char *)(fname + (fname_len - 4)), ".dll")))
+    {
+      s7_pointer init;
+
+      init = let_ref_1(sc, sc->envir, s7_make_symbol(sc, "init_func"));
+      if (is_symbol(init))
+      {
+        HMODULE library;
+        library = LoadLibrary(fname);
+        if(library)
+        {
+          const char *init_name = NULL;
+          void *init_func;
+
+          init_name = symbol_name(init);
+          init_func = GetProcAddress(library, init_name);
+          if (init_func)
+          {
+            typedef void *(*dl_func)(s7_scheme *sc);
+            ((dl_func)init_func)(sc);
+            return(sc->T);
+          }
+          else
+          {
+            s7_warn(sc, 512, "loaded %s, but can't find %s?\n", fname, init_name);
+            FreeLibrary(library);
+          }
+        }
+        else s7_warn(sc, 512, "load %s failed\n", fname);
+      }
+      else 
+      {
+        s7_warn(sc, 512, "can't load %s: no init function\n", fname);
+        return(sc->F);
+      }
+    }
+  }
+#else
   /* if fname ends in .so, try loading it as a c shared object
    *   (load "/home/bil/cl/m_j0.so" (inlet (cons 'init_func 'init_m_j0)))
    */
@@ -28577,6 +28626,7 @@ defaults to the rootlet.  To load into the current environment instead, pass (cu
       return(sc->F);
     }
   }
+#endif
 #endif
 
   fp = fopen(fname, "r");
