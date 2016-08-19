@@ -218,8 +218,12 @@
 
   (let ((file-name (string-append *cload-directory* (or output-name (format #f "temp-s7-output-~D" c-define-output-file-counter)))))
     (let ((c-file-name (string-append file-name ".c"))
-	  (o-file-name (string-append file-name ".o"))
-	  (so-file-name (string-append file-name ".so"))
+      (o-file-name (if (provided? 'windows)
+                       (string-append file-name ".obj")
+                       (string-append file-name ".o")))
+      (so-file-name (if (provided? 'windows)
+                        (string-append file-name ".dll")
+                        (string-append file-name ".so")))
 	  (init-name (if (string? output-name)
 			 (string-append output-name "_init")
 			 (string-append "init_" (number->string c-define-output-file-counter))))
@@ -419,7 +423,9 @@
 	;; now the init function
 	;;   the new scheme variables and functions are placed in the current environment
 	
-	(format p "void ~A(s7_scheme *sc);~%" init-name)
+	(if (provided? 'windows)
+        	(format p "void __declspec(dllexport) ~A(s7_scheme *sc);~%" init-name)
+            (format p "void ~A(s7_scheme *sc);~%" init-name))
 	(format p "void ~A(s7_scheme *sc)~%" init-name)
 	(format p "{~%")
 	(format p "  s7_pointer cur_env;~%")
@@ -564,6 +570,12 @@
 			       c-file-name o-file-name *cload-cflags* cflags))
 	       (system (format #f "cc ~A -G -o ~A ~A ~A" 
 			       o-file-name so-file-name *cload-ldflags* ldflags)))
+
+          ((provided? 'windows)
+           (system (format #f "cl ~A /c /Fo~A ~A ~A"
+                           c-file-name o-file-name *cload-cflags* cflags))
+           (system (format #f "cl ~A /LD /Fe~A ~A ~A"
+                           o-file-name so-file-name *cload-ldflags* ldflags)))
 	      
 	      ;; what about clang?  Maybe use cc below, not gcc (and in osx case above)
 	      
